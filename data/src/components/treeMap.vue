@@ -49,6 +49,8 @@ export default class extends Vue {
   }
 
   mounted() {
+    let vm = this;
+    vm.getRootInf('contract')
   }
 
   getRootInf(moduleItem) {

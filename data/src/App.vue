@@ -38,15 +38,13 @@ import axios from 'axios';
   components: { treeMap, graph, codeEdit }
 })
 export default class extends Vue {
-  moduleItem = '';
+  moduleItem = 'contract';
   moduleList = [];
 
   mounted() {
     const vm = this;
     axios.get('/api/getModules').then(({ data }) => {
       vm.moduleList = data.modules;
-      vm.moduleItem = vm.moduleList[0];
-      vm.$refs.treeMap.getRootInf(vm.moduleItem);
     });
   }
 

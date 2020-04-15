@@ -20,7 +20,7 @@ app.use(bodyParser())
 app.use(cors())
 app.use(compress())
 
-var modulePath = 'contract'
+var modulePath = ''
 var filePath = path.resolve('./data/' + modulePath);
 var root;
 var fileTypes;
