@@ -1,0 +1,16 @@
+{
+  "name": "code_dependency_analysis",
+  "version": "1.0.0.0",
+  "dependencies": {
+    "@koa/cors": "^2.2.3",
+    "codemirror": "^5.52.2",
+    "dependency-cruiser": "^8.2.0",
+    "directory-tree": "^2.2.4",
+    "koa": "^2.11.0",
+    "koa-bodyparser": "^4.3.0",
+    "koa-compress": "^3.0.0",
+    "koa-cors": "0.0.16",
+    "koa-router": "^8.0.8",
+    "koa-static": "^5.0.0"
+  }
+}
