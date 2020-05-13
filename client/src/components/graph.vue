@@ -38,7 +38,7 @@ export default class extends Vue {
       });
     });
 
-    vm.$bus.$on("clearNode", (moduleItem) => {
+    vm.$bus.$on("clearNode", () => {
       vm.clearNode();
     });
   }
@@ -50,13 +50,13 @@ export default class extends Vue {
   getNodeLink(params) {
     let vm = this;
     vm.myChart = echarts.init(document.getElementById("graph_div"));
-    axios.get('/api/getNodeLink', { params }).then(({ data }) => {
+    axios.get('/getNodeLink', { params }).then(({ data }) => {
       vm.selectNodes = data.nodes;
       vm.links = data.links.map(v => {
         v.label = {
           show: true,
           formatter: (Object) => {
-            return Object.data.values.join(",");
+            return Object.data.values.join(",").slice(0,10);
           }
         }
         return v;
@@ -86,17 +86,22 @@ export default class extends Vue {
       title: {
         text: '依赖关系'
       },
-      tooltip: {},
+      tooltip: {
+        formatter: function (params,ticket,callback) {
+          return params.dataType === 'edge' ? params.data.values.join(",") : params.data.filedir
+        }
+      },
       animationDurationUpdate: 1500,
       animationEasingUpdate: 'quinticInOut',
       series: [{
         type: 'graph',
         layout: 'force',
         force: {
-          // gravity: 10,
+          gravity: 0.1,
           repulsion: 1000,
-          edgeLength: 200
+          edgeLength: 200,
         },
+        focusNodeAdjacency: true,
         draggable: true,
         symbolSize: 50,
         roam: true,
@@ -142,7 +147,7 @@ export default class extends Vue {
 #graph_div {
   width: 100%;
   height: 100%;
+  border-left: 1px dashed #3f51b540;
   user-select: none;
-  border: 1px solid;
 }
 </style>

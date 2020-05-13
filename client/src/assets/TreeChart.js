@@ -42,6 +42,9 @@ export default class ChartController {
     this.size = size;
     this.duration = 750;
     this.callback = callback;
+    this.maxCount = 0;
+
+    this.selectMap = {};
   }
 
   initCollapseClusterChart() {
@@ -171,10 +174,24 @@ export default class ChartController {
       i,
       root,
       node_g,
-      link_g
+      link_g,
+      size,
+      dirTree
     } = this
 
+    const {
+      width,
+      height
+    } = size;
+
     const vm = this;
+    this.maxCount = 0;
+    this.getTreeNodes(root);
+    let t = this.maxCount * 20 < height / 2 ? height / 2 : this.maxCount * 20;
+    treemap.size([t, width]);
+    root.x0 = height /2 - this.maxCount * 10
+    source.x0 = height /2 - this.maxCount * 10;
+
     var treeData = treemap(root);
     var nodes = treeData.descendants(),
       links = treeData.descendants().slice(1);
@@ -190,11 +207,22 @@ export default class ChartController {
 
     var nodeEnter = node.enter().append('g')
       .attr('class', 'node')
+      .attr('id', d => `node_g_${d.data.id}`)
       .attr("transform", function (d) {
         return "translate(" + source.y0 + "," + source.x0 + ")";
       })
       .on('click', function (d) {
         vm.click(d, this);
+      })
+      .on('mouseover', function(d) {
+        vm.hover(d, this);
+      })
+      .on('mouseout', function(d) {
+        vm.cancleHover(d, this);
+      })
+      .on('contextmenu', function (d, e) {
+        d3.event.preventDefault();
+        vm.rightClick(d);
       });
 
     nodeEnter.append('circle')
@@ -205,6 +233,10 @@ export default class ChartController {
 
     nodeEnter.append('text')
       .text(d => d.data.name)
+      .attr("class", d => {
+        d.data.selected = vm.selectMap[d.data.id] === undefined ? d.data.selected : vm.selectMap[d.data.id];
+        return d.data.selected ? 'textSelect' : 'textUnSelect'
+      })
       .attr("dy", d => d.children ? '1em' : '0.31em')
       .attr("x", function (d) {
         return d.children ? -4 : 8;
@@ -219,7 +251,7 @@ export default class ChartController {
       .transition()
       .duration(duration)
       .attr("transform", function (d) {
-        d.y += d.children ? 100 : 0;
+        d.y += (d.children ? 100 : 0);
         return "translate(" + d.y + "," + d.x + ")";
       });
 
@@ -287,7 +319,6 @@ export default class ChartController {
       d.y0 = d.y;
     });
 
-
     function diagonal(s, d) {
       return "M" + s.y + "," + s.x +
         "H" + d.y + "V" + d.x +
@@ -295,31 +326,100 @@ export default class ChartController {
     }
   }
 
-  collapse(d) {
+  collapseCtrl(status) {
+    let d = this.root;
+    if (status)
+      this.expandAll(d);
+    else 
+      this.collapseAll(d);
+    this.update(d);
+  }
+
+  expandAll(d) {
+    if (d._children) {
+      d.children = d._children
+      d.children.forEach((item)=>{
+        this.expandAll(item)
+      });
+      d._children = null
+    }
+  }
+
+  collapseAll(d) {
     if (d.children) {
       d._children = d.children
-      d._children.forEach(collapse)
+      d._children.forEach((item)=>{
+        this.collapseAll(item)
+      });
       d.children = null
     }
   }
 
-  click(d, that) {
+  hover(d, node) {
     const vm = this;
-    const dom = d3.select(that)
+
+    const dom = d3.select(node)
       .selectAll('text');
 
+      dom.attr('stroke-width', '0.5px');
+      dom.attr('stroke', 'black');
+  }
+
+  cancleHover(d, node) {
+    const vm = this;
+
+    const dom = d3.select(node)
+      .selectAll('text');
+
+      dom.attr('stroke-width', '0px');
+      dom.attr('stroke', 'none');
+  }
+
+  click(d, that) {
+    const vm = this;
+
+    d.selected = vm.selectMap[d.data.id] || d.selected;
     if (!d.selected) {
-      d.selected = true;
-
-      dom.attr('text-decoration', 'underline');
-      vm.callback.addNode(d.data.id);
+      vm.nodeSelect(d, that);
     } else {
-      d.selected = false;
-
-      dom.attr('text-decoration', 'none');
-      vm.callback.delNode(d.data.id);
+      vm.nodeUnSelect(d, that);
     }
 
+    vm.collapse(d);
+    vm.update(d);
+  }
+
+  nodeSelect(d, node) {
+    const vm = this;
+
+    const dom = d3.select(node)
+      .selectAll('text');
+
+      d.selected = true;
+      vm.selectMap[d.data.id] = true;
+
+      dom.attr('class', 'textSelect');
+      if (d.data.fileTpye !== 'dir') {
+        vm.callback.addNode(d.data.id);
+      }
+  }
+
+  nodeUnSelect(d, node) {
+    const vm = this;
+
+    const dom = d3.select(node)
+      .selectAll('text');
+
+    d.selected = false;
+    vm.selectMap[d.data.id] = false;
+
+    dom.attr('class', 'textUnSelect');
+    if (d.data.fileTpye !== 'dir') {
+      vm.callback.delNode(d.data.id);
+    }
+  }
+
+  collapse(d) {
     if (d.children) {
       d._children = d.children;
       d.children = null;
@@ -327,7 +427,15 @@ export default class ChartController {
       d.children = d._children;
       d._children = null;
     }
-    vm.update(d);
+  }
+
+  rightClick(d) {
+    let pos = d3.event;
+    this.callback.rightClickNode({
+      top: pos.y,
+      left: pos.x,
+      Node: d
+    });
   }
 
   addZoom() {
@@ -352,6 +460,20 @@ export default class ChartController {
 
     function zoomed() {
       content_g.attr("transform", d3.event.transform);
+    }
+  }
+
+  getTreeNodes(node) {
+    if (!node.children) {
+      return;
+    }
+    for (let i = 0; i < node.children.length; i++) {
+      if (!node.children[i].children) {
+        this.maxCount++;
+      }
+      if (node.children[i].children) {
+        this.getTreeNodes(node.children[i]);
+      }
     }
   }
 }

@@ -89,7 +89,7 @@ export default class extends Vue {
 
     vm.$bus.$on("openFile", (obj) => {
       vm.table = true;
-      axios.get('/api/getFileContent', {
+      axios.get('/getFileContent', {
         params: {
           filePath: obj.filedir
         }
@@ -130,7 +130,7 @@ export default class extends Vue {
   editFile(item) {
     const vm = this;
     vm.loading = true;
-    axios.post('/api/editFile', {
+    axios.post('/editFile', {
       data: {
         filePath: item.filePath,
         content: item.code

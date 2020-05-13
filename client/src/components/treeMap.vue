@@ -1,5 +1,16 @@
 <template>
 <div id="treeMap">
+  <v-contextmenu ref="contextmenu">
+    <v-contextmenu-item v-if="contextmenuNode.data.type === 'dir'"
+      @click="addDir">添加文件下所有文件</v-contextmenu-item>
+    <v-contextmenu-item v-if="contextmenuNode.data.type === 'dir'"
+      @click="delDir">删除文件下所有文件</v-contextmenu-item>
+    <v-contextmenu-item v-if="contextmenuNode.data.type !== 'dir'"
+      @click="addDepNode">添加依赖文件</v-contextmenu-item>
+    <v-contextmenu-item v-if="contextmenuNode.data.type !== 'dir'"
+      @click="addDepddNode">添加被依赖文件</v-contextmenu-item>
+  </v-contextmenu>
+
   <svg id="treeSvg">
     <defs>
       <pattern v-for="item in icons" :key="item.id"
@@ -28,23 +39,22 @@ import ChartController from '../assets/TreeChart';
 export default class extends Vue {
   @Prop() data;
   icons = [];
+  contextmenuNode = {
+    data: {
+      type: ''
+    },
+    hasChildren: false
+  }; //右键菜单节点
 
   created() {
     const vm = this;
 
-    // vm.$bus.$on("openFile", (filePath) => {
-    //   vm.table = true;
-    //   vm.changfile = filePath;
-    //   axios.get('/api/getFileContent', {
-    //     params: {
-    //       filePath: filePath
-    //     }
-    //   }).then(({ data }) => {
-    //   });
-    // });
-
     vm.$bus.$on("updateRoot", (moduleItem) => {
       vm.getRootInf(moduleItem);
+    });
+
+    vm.$bus.$on("collapse", (status) => {
+      this.chart.collapseCtrl(status);
     });
   }
 
@@ -53,7 +63,7 @@ export default class extends Vue {
 
   getRootInf(moduleItem) {
     let vm = this;
-    axios.get('/api/getRootInf', {
+    axios.get('/getRootInf', {
       params: {
         moduleItem: moduleItem
       }
@@ -61,10 +71,16 @@ export default class extends Vue {
       vm.updataView(data.root);
 
       vm.icons = data.fileTypes.map(item => {
-        return {
-          id: item + '_icon',
-          url: require(`../assets/icons/${item}.svg`)
+        let ob = {
+          id: item + '_icon'
+        };
+        try {
+          ob.url = require(`@/assets/icons/${item}.svg`);
+        } catch (e) {
+          ob.url = require('@/assets/icons/dir.svg');
         }
+
+        return ob;
       });
     });
   }
@@ -74,7 +90,7 @@ export default class extends Vue {
 
     let width = document.getElementById('treeMap').offsetWidth;
     let height = document.getElementById('treeMap').offsetHeight;
-    let chart = new ChartController({
+    this.chart = new ChartController({
       size: {
         width,
         height
@@ -83,11 +99,12 @@ export default class extends Vue {
       domsvg: d3.select('#treeSvg'),
       callback:{
         addNode: vm.addNode(),
-        delNode: vm.delNode()
+        delNode: vm.delNode(),
+        rightClickNode: vm.rightClickNode()
       }
     });
     d3.select('#treeSvg').selectAll('g').remove();
-    chart.initCollapseClusterChart2();
+    this.chart.initCollapseClusterChart2();
   }
 
   addNode() {
@@ -102,6 +119,71 @@ export default class extends Vue {
     return function(nodeId) {
       vm.$bus.$emit("delNode", nodeId);
     }
+  }
+
+  rightClickNode() {
+    const vm = this;
+    return function({ top, left, Node}) {
+      vm.contextmenuNode.data = Node.data;
+      vm.OriNode = Node;
+      vm.$refs.contextmenu.show({ top, left });
+    };
+  }
+
+  addDir() {
+    for (let i = 0;i < this.OriNode.data.children.length; i++) {
+      let node = this.OriNode.data.children[i];
+      if (node.type !== 'dir') {
+        this.chart.nodeSelect({
+          data: node
+        }, d3.select(`#node_g_${node.id}`)._groups[0][0]);
+      }
+    }
+  }
+
+  delDir() {
+    for (let i = 0;i < this.OriNode.data.children.length; i++) {
+      let node = this.OriNode.data.children[i];
+      if (node.type !== 'dir') {
+        this.chart.nodeUnSelect({
+          data: node
+        }, d3.select(`#node_g_${node.id}`)._groups[0][0]);
+      }
+    }
+  }
+
+  addDepNode() {
+    const vm = this;
+    axios.get('/getDepNode', {
+      params: {
+        nodeId: vm.contextmenuNode.data.id
+      }
+    }).then(({ data }) => {
+      for (let i = 0; i < data.depNodes.length; i++) {
+        this.chart.nodeSelect({
+          data: {
+            id: data.depNodes[i]
+          }
+        }, d3.select(`#node_g_${data.depNodes[i]}`)._groups[0][0]);
+      }
+    });
+  }
+
+  addDepddNode() {
+    const vm = this;
+    axios.get('/getDepedNode', {
+      params: {
+        nodeId: vm.contextmenuNode.data.id
+      }
+    }).then(({ data }) => {
+      for (let i = 0; i < data.depNodes.length; i++) {
+        this.chart.nodeSelect({
+          data: {
+            id: data.depNodes[i]
+          }
+        }, d3.select(`#node_g_${data.depNodes[i]}`)._groups[0][0]);
+      }
+    });
   }
 }
 </script>
@@ -119,15 +201,17 @@ export default class extends Vue {
 #treeMap {
   position: relative;
   user-select: none;
-  border: 1px solid;
 }
 
-.node text {
+.textSelect {
+  fill: #747def;
+  font: 12px sans-serif;
+  font-weight: bolder;
+}
+
+.textUnSelect {
+  fill: black;
   font: 10px sans-serif;
-}
-
-.node .select {
-  stroke: red;
-  stroke-width: 1px;
+  font-weight: inherit;
 }
 </style>

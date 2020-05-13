@@ -20,8 +20,11 @@ function getTarget(name, t) {
 function findPre(params) {
   let { node, name } = params;
   let p = node;
+  if (p.fileTpye === 'file') {
+    p = p.parent;
+  }
   if (name) {
-    p = getTarget(name, p);
+    p = getTarget(name, p.parent);
   }
   return p;
 }
@@ -40,6 +43,10 @@ function findNode(str, node) {
   let re;
   let lastRe = '';
 
+  let ori = t;
+  if (ori.fileTpye === 'file') {
+    ori = ori.parent;
+  }
   while ((re = fileReg.exec(str)) !== null) {
     lastRe = re[2] || lastRe;
     switch(re[1]) {
@@ -55,10 +62,13 @@ function findNode(str, node) {
     }
   }
 
+  // import 文件夹默认 index情况
   if(t && t.fileTpye === 'dir' && lastRe === t.name) {
     t = t.files.filter(v => v.name === 'index.ts')[0] || null;
   }
-  if (t && t.id === node.id) {
+
+  // 向上向下找不到依赖情况
+  if (t && (t.id === node.id || t.id === ori.id)) {
     t = null;
   }
 
@@ -84,6 +94,11 @@ function handleVals(str) {
 }
 
 function analysisRoot(root) {
+  if (root.name === 'node_modules'
+    || root.name === '.git'
+    || root.name === '.vscode') {
+      return;
+  }
   for (let i = 0; i < root.files.length; i++) {
     if (!root.files[i].record) {
       root.files[i].record = true;
@@ -108,6 +123,8 @@ function analysisRoot(root) {
         });
       }
     }
+    root.files[i]._dependencies = root.files[i]._dependencies;
+    root.files[i].dependencies = [];
 
     for (let k = 0; k < root.dirs.length; k++) {
       analysisRoot(root.dirs[k]);
