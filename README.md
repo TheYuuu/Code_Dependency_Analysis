@@ -9,3 +9,4 @@
 - 树图右键文件夹添加所有节点
 - 点击关系图可编辑文件内容
 
+- npm 链接https://www.npmjs.com/package/hailhydra-cli
